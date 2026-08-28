@@ -16,10 +16,13 @@ rules that hold an emoji sequence together:
   start, end, or next to plain text
 - a variation selector (U+FE0E / U+FE0F) must follow a base character it can
   actually modify
-- a skin tone modifier (U+1F3FB-U+1F3FF) must follow a base emoji, not
-  another modifier or plain text
+- a skin tone modifier (U+1F3FB-U+1F3FF) must follow a base character,
+  never another modifier, a joiner, or a variation selector
 - regional indicator pairs (flags) and keycap sequences (digit/#/* +
   optional U+FE0F + U+20E3) are checked for completeness
+- a lone trailing regional indicator is valid Unicode on its own (it
+  renders as a boxed letter, not half a flag), so it's flagged with a
+  warning rather than treated as a structural error, in both modes
 
 By default (strict mode) any violation is a fatal error and nothing is
 printed. Pass `--lenient` to repair what it can instead - dropping orphan

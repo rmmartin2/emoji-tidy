@@ -201,9 +201,11 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 	}
 	if last == kindRegionalFirst {
 		// A lone regional indicator is valid Unicode on its own (it just
-		// renders as a boxed letter rather than half a flag), so there's
-		// nothing to repair here even in lenient mode - only a warning.
-		reject("sequence ends with an unpaired regional indicator")
+		// renders as a boxed letter rather than half a flag), so this is
+		// never a structural violation - it's a heads-up in both strict
+		// and lenient mode, not something reject() should be able to fail
+		// the field over.
+		warnings = append(warnings, Warning{Field: field, Message: "sequence ends with an unpaired regional indicator"})
 	}
 
 	if len(errs) > 0 {

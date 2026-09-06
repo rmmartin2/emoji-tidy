@@ -23,6 +23,9 @@ rules that hold an emoji sequence together:
 - a lone trailing regional indicator is valid Unicode on its own (it
   renders as a boxed letter, not half a flag), so it's flagged with a
   warning rather than treated as a structural error, in both modes
+- a completed flag (a paired regional indicator) is not a modifier base:
+  a skin tone modifier, variation selector, or joiner right after one is
+  rejected the same way as one attached to plain text
 
 By default (strict mode) any violation is a fatal error and nothing is
 printed. Pass `--lenient` to repair what it can instead - dropping orphan

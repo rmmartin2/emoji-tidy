@@ -139,6 +139,61 @@ func TestFormat_StrictRejectsKeycapWithNoBase(t *testing.T) {
 	}
 }
 
+func TestFormat_StrictRejectsModifierAfterFlag(t *testing.T) {
+	// A completed regional-indicator pair is a flag emoji, not a modifier
+	// base - it must not accept a skin tone modifier.
+	_, _, err := Format("\U0001F1FA\U0001F1F8\U0001F3FB", Options{})
+	if err == nil {
+		t.Fatal("expected an error for a skin tone modifier following a flag")
+	}
+}
+
+func TestFormat_LenientRepairsModifierAfterFlag(t *testing.T) {
+	out, warnings, err := Format("\U0001F1FA\U0001F1F8\U0001F3FB", Options{Lenient: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "\U0001F1FA\U0001F1F8\n"
+	if out != want {
+		t.Fatalf("got %q, want %q", out, want)
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("expected exactly one warning, got %d: %v", len(warnings), warnings)
+	}
+}
+
+func TestFormat_StrictRejectsJoinerAfterFlag(t *testing.T) {
+	// Flags aren't ZWJ-joined with anything in the standard, so a joiner
+	// right after a completed pair is structurally broken.
+	_, _, err := Format("\U0001F1FA\U0001F1F8‍\U0001F600", Options{})
+	if err == nil {
+		t.Fatal("expected an error for a zero-width joiner following a flag")
+	}
+}
+
+func TestFormat_StrictRejectsVariationSelectorAfterFlag(t *testing.T) {
+	_, _, err := Format("\U0001F1FA\U0001F1F8️", Options{})
+	if err == nil {
+		t.Fatal("expected an error for a variation selector following a flag")
+	}
+}
+
+func TestFormat_ValidTwoFlagsInARow(t *testing.T) {
+	// Four regional indicators pair up left to right into two separate
+	// flags, not one flag plus a stray pair.
+	twoFlags := "\U0001F1FA\U0001F1F8\U0001F1EC\U0001F1E7" // US, GB
+	out, warnings, err := Format(twoFlags, Options{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("unexpected warnings: %v", warnings)
+	}
+	if out != twoFlags+"\n" {
+		t.Fatalf("got %q, want %q", out, twoFlags+"\n")
+	}
+}
+
 func TestFormat_MultipleFieldsAggregateErrors(t *testing.T) {
 	_, _, err := Format("\U0001F44D‍ ️", Options{})
 	if err == nil {

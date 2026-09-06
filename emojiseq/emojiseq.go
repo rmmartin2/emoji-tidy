@@ -35,6 +35,7 @@ const (
 	kindZWJ
 	kindRegionalFirst
 	kindKeycapBase
+	kindFlag
 )
 
 // Options controls how Format handles structurally invalid sequences.
@@ -134,6 +135,12 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 	for i, r := range runes {
 		switch {
 		case r == zwj:
+			if last == kindFlag {
+				if reject(fmt.Sprintf("position %d: zero-width joiner cannot follow a completed flag sequence", i)) {
+					return "", warnings, errs
+				}
+				continue
+			}
 			if last != kindBase && last != kindModifier && last != kindVariation {
 				if reject(fmt.Sprintf("position %d: zero-width joiner has no preceding emoji to join", i)) {
 					return "", warnings, errs
@@ -144,6 +151,12 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 			last = kindZWJ
 
 		case r == vs15 || r == vs16:
+			if last == kindFlag {
+				if reject(fmt.Sprintf("position %d: variation selector cannot follow a completed flag sequence", i)) {
+					return "", warnings, errs
+				}
+				continue
+			}
 			if last != kindBase && last != kindKeycapBase {
 				if reject(fmt.Sprintf("position %d: variation selector is not attached to a base character", i)) {
 					return "", warnings, errs
@@ -154,6 +167,12 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 			last = kindVariation
 
 		case r >= skinToneLow && r <= skinToneHigh:
+			if last == kindFlag {
+				if reject(fmt.Sprintf("position %d: skin tone modifier cannot follow a completed flag sequence", i)) {
+					return "", warnings, errs
+				}
+				continue
+			}
 			if last != kindBase {
 				if reject(fmt.Sprintf("position %d: skin tone modifier is not attached to a base emoji", i)) {
 					return "", warnings, errs
@@ -166,7 +185,7 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 		case r >= regionalLow && r <= regionalHigh:
 			out = append(out, r)
 			if last == kindRegionalFirst {
-				last = kindBase
+				last = kindFlag
 			} else {
 				last = kindRegionalFirst
 			}

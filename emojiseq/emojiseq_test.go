@@ -194,6 +194,44 @@ func TestFormat_ValidTwoFlagsInARow(t *testing.T) {
 	}
 }
 
+func TestFormat_StrictRejectsKeycapAfterNonKeycapVariation(t *testing.T) {
+	// The keycap combiner only completes a digit, '#', or '*' base - a
+	// variation selector attached to some other base (here U+25B6, the
+	// play button) must not make it look like a valid keycap attachment
+	// point just because both leave `last` at "variation selector seen".
+	_, _, err := Format("\U000025B6️⃣", Options{})
+	if err == nil {
+		t.Fatal("expected an error for a keycap combiner following a non-keycap base's variation selector")
+	}
+}
+
+func TestFormat_LenientRepairsKeycapAfterNonKeycapVariation(t *testing.T) {
+	out, warnings, err := Format("\U000025B6️⃣", Options{Lenient: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "\U000025B6️\n"
+	if out != want {
+		t.Fatalf("got %q, want %q", out, want)
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("expected exactly one warning, got %d: %v", len(warnings), warnings)
+	}
+}
+
+func TestFormat_ValidKeycapWithVariationSelector(t *testing.T) {
+	// The ordinary case this must keep working: digit + VS16 + keycap
+	// combiner is a legitimate keycap sequence.
+	keycap := "1️⃣"
+	out, _, err := Format(keycap, Options{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out != keycap+"\n" {
+		t.Fatalf("got %q, want %q", out, keycap+"\n")
+	}
+}
+
 func TestFormat_MultipleFieldsAggregateErrors(t *testing.T) {
 	_, _, err := Format("\U0001F44D‍ ️", Options{})
 	if err == nil {

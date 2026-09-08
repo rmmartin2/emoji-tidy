@@ -35,6 +35,7 @@ const (
 	kindZWJ
 	kindRegionalFirst
 	kindKeycapBase
+	kindKeycapVariation
 	kindFlag
 )
 
@@ -164,7 +165,11 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 				continue
 			}
 			out = append(out, r)
-			last = kindVariation
+			if last == kindKeycapBase {
+				last = kindKeycapVariation
+			} else {
+				last = kindVariation
+			}
 
 		case r >= skinToneLow && r <= skinToneHigh:
 			if last == kindFlag {
@@ -191,7 +196,7 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 			}
 
 		case r == keycapCombiner:
-			if last != kindKeycapBase && last != kindVariation {
+			if last != kindKeycapBase && last != kindKeycapVariation {
 				if reject(fmt.Sprintf("position %d: keycap combiner has no digit, '#', or '*' to attach to", i)) {
 					return "", warnings, errs
 				}

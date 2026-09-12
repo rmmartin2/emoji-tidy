@@ -232,6 +232,43 @@ func TestFormat_ValidKeycapWithVariationSelector(t *testing.T) {
 	}
 }
 
+func TestFormat_StrictRejectsModifierAfterKeycap(t *testing.T) {
+	// A closed keycap sequence (digit + VS16 + combiner) is a completed
+	// unit, not a modifier base - the same rule already applied to flags.
+	_, _, err := Format("1️⃣\U0001F3FB", Options{})
+	if err == nil {
+		t.Fatal("expected an error for a skin tone modifier following a keycap sequence")
+	}
+}
+
+func TestFormat_LenientRepairsModifierAfterKeycap(t *testing.T) {
+	out, warnings, err := Format("1️⃣\U0001F3FB", Options{Lenient: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "1️⃣\n"
+	if out != want {
+		t.Fatalf("got %q, want %q", out, want)
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("expected exactly one warning, got %d: %v", len(warnings), warnings)
+	}
+}
+
+func TestFormat_StrictRejectsJoinerAfterKeycap(t *testing.T) {
+	_, _, err := Format("1️⃣‍\U0001F600", Options{})
+	if err == nil {
+		t.Fatal("expected an error for a zero-width joiner following a keycap sequence")
+	}
+}
+
+func TestFormat_StrictRejectsVariationSelectorAfterKeycap(t *testing.T) {
+	_, _, err := Format("1️⃣️", Options{})
+	if err == nil {
+		t.Fatal("expected an error for a variation selector following a keycap sequence")
+	}
+}
+
 func TestFormat_MultipleFieldsAggregateErrors(t *testing.T) {
 	_, _, err := Format("\U0001F44D‍ ️", Options{})
 	if err == nil {

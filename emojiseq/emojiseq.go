@@ -37,7 +37,23 @@ const (
 	kindKeycapBase
 	kindKeycapVariation
 	kindFlag
+	kindKeycap
 )
+
+// completedKind names the kinds that represent a finished, self-contained
+// sequence (a paired flag or a closed keycap) rather than a single base
+// character. Neither can take a joiner, variation selector, or skin tone
+// modifier afterward - the same restriction plain text is under.
+func completedKind(k runeKind) (name string, ok bool) {
+	switch k {
+	case kindFlag:
+		return "flag", true
+	case kindKeycap:
+		return "keycap", true
+	default:
+		return "", false
+	}
+}
 
 // Options controls how Format handles structurally invalid sequences.
 type Options struct {
@@ -136,8 +152,8 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 	for i, r := range runes {
 		switch {
 		case r == zwj:
-			if last == kindFlag {
-				if reject(fmt.Sprintf("position %d: zero-width joiner cannot follow a completed flag sequence", i)) {
+			if what, ok := completedKind(last); ok {
+				if reject(fmt.Sprintf("position %d: zero-width joiner cannot follow a completed %s sequence", i, what)) {
 					return "", warnings, errs
 				}
 				continue
@@ -152,8 +168,8 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 			last = kindZWJ
 
 		case r == vs15 || r == vs16:
-			if last == kindFlag {
-				if reject(fmt.Sprintf("position %d: variation selector cannot follow a completed flag sequence", i)) {
+			if what, ok := completedKind(last); ok {
+				if reject(fmt.Sprintf("position %d: variation selector cannot follow a completed %s sequence", i, what)) {
 					return "", warnings, errs
 				}
 				continue
@@ -172,8 +188,8 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 			}
 
 		case r >= skinToneLow && r <= skinToneHigh:
-			if last == kindFlag {
-				if reject(fmt.Sprintf("position %d: skin tone modifier cannot follow a completed flag sequence", i)) {
+			if what, ok := completedKind(last); ok {
+				if reject(fmt.Sprintf("position %d: skin tone modifier cannot follow a completed %s sequence", i, what)) {
 					return "", warnings, errs
 				}
 				continue
@@ -203,7 +219,7 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 				continue
 			}
 			out = append(out, r)
-			last = kindBase
+			last = kindKeycap
 
 		default:
 			out = append(out, r)

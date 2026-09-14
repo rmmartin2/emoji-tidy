@@ -58,11 +58,28 @@ Reading from a file works the same way:
 
     $ emoji-tidy --lenient messy-input.txt > clean-output.txt
 
+`--json` prints a single JSON object on stdout instead of plain text and
+stderr messages, with `output`, `warnings`, and `errors` keys (the latter
+two are always arrays, even when empty), which is easier for another
+program to consume than the line-based format above:
+
+    $ echo "👍‍" | emoji-tidy --json --lenient
+    {
+      "output": "👍\n",
+      "warnings": [
+        {
+          "field": "👍‍",
+          "message": "sequence ends with a dangling zero-width joiner"
+        }
+      ],
+      "errors": []
+    }
+
 ## Status
 
 Early. The rule set above is everything it checks right now - no full
-emoji-data conformance, no grapheme clustering for output, no JSON mode. It
-works on what it covers.
+emoji-data conformance, no grapheme clustering for output. It works on what
+it covers.
 
 ## License
 

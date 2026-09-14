@@ -64,8 +64,8 @@ type Options struct {
 
 // Warning describes a repair made in lenient mode.
 type Warning struct {
-	Field   string
-	Message string
+	Field   string `json:"field"`
+	Message string `json:"message"`
 }
 
 func (w Warning) String() string {
@@ -74,8 +74,8 @@ func (w Warning) String() string {
 
 // ValidationError describes a single structural violation found in strict mode.
 type ValidationError struct {
-	Field   string
-	Message string
+	Field   string `json:"field"`
+	Message string `json:"message"`
 }
 
 func (e *ValidationError) Error() string {

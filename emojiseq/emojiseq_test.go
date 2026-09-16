@@ -269,6 +269,112 @@ func TestFormat_StrictRejectsVariationSelectorAfterKeycap(t *testing.T) {
 	}
 }
 
+func TestFormat_ValidTagSequenceEngland(t *testing.T) {
+	// U+1F3F4 (black flag) + tag_g tag_b tag_e tag_n tag_g ("gbeng") +
+	// cancel tag is the standard England subdivision flag.
+	england := "\U0001F3F4\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F"
+	out, warnings, err := Format(england, Options{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("unexpected warnings: %v", warnings)
+	}
+	if out != england+"\n" {
+		t.Fatalf("got %q, want %q", out, england+"\n")
+	}
+}
+
+func TestFormat_ValidTagSequenceScotland(t *testing.T) {
+	// tag_g tag_b tag_s tag_c tag_t ("gbsct") is the Scotland subdivision code.
+	scotland := "\U0001F3F4\U000E0067\U000E0062\U000E0073\U000E0063\U000E0074\U000E007F"
+	out, _, err := Format(scotland, Options{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out != scotland+"\n" {
+		t.Fatalf("got %q, want %q", out, scotland+"\n")
+	}
+}
+
+func TestFormat_PlainBlackFlagIsValidOnItsOwn(t *testing.T) {
+	// A black flag with no tag characters is just the ordinary waving
+	// black flag emoji, not a broken tag sequence.
+	blackFlag := "\U0001F3F4"
+	out, warnings, err := Format(blackFlag, Options{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("unexpected warnings: %v", warnings)
+	}
+	if out != blackFlag+"\n" {
+		t.Fatalf("got %q, want %q", out, blackFlag+"\n")
+	}
+}
+
+func TestFormat_StrictRejectsIncompleteTagSequence(t *testing.T) {
+	// Missing the cancel tag at the end leaves the sequence unclosed.
+	incomplete := "\U0001F3F4\U000E0067\U000E0062"
+	_, _, err := Format(incomplete, Options{})
+	if err == nil {
+		t.Fatal("expected an error for a tag sequence missing its cancel tag")
+	}
+}
+
+func TestFormat_LenientRepairsIncompleteTagSequence(t *testing.T) {
+	incomplete := "\U0001F3F4\U000E0067\U000E0062"
+	out, warnings, err := Format(incomplete, Options{Lenient: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "\U0001F3F4\n"
+	if out != want {
+		t.Fatalf("got %q, want %q", out, want)
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("expected exactly one warning, got %d: %v", len(warnings), warnings)
+	}
+}
+
+func TestFormat_StrictRejectsTagCharWithNoFlag(t *testing.T) {
+	_, _, err := Format("\U000E0067\U000E0062", Options{})
+	if err == nil {
+		t.Fatal("expected an error for a tag character with no preceding black flag")
+	}
+}
+
+func TestFormat_StrictRejectsCancelTagWithNoTagChars(t *testing.T) {
+	_, _, err := Format("\U0001F3F4\U000E007F", Options{})
+	if err == nil {
+		t.Fatal("expected an error for a cancel tag with no preceding tag characters")
+	}
+}
+
+func TestFormat_StrictRejectsModifierAfterTagSequence(t *testing.T) {
+	// A closed tag sequence is a completed unit, same as a flag or keycap -
+	// it cannot take a skin tone modifier afterward.
+	england := "\U0001F3F4\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F"
+	_, _, err := Format(england+"\U0001F3FB", Options{})
+	if err == nil {
+		t.Fatal("expected an error for a skin tone modifier following a tag sequence")
+	}
+}
+
+func TestFormat_LenientRepairsModifierAfterTagSequence(t *testing.T) {
+	england := "\U0001F3F4\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F"
+	out, warnings, err := Format(england+"\U0001F3FB", Options{Lenient: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out != england+"\n" {
+		t.Fatalf("got %q, want %q", out, england+"\n")
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("expected exactly one warning, got %d: %v", len(warnings), warnings)
+	}
+}
+
 func TestFormat_MultipleFieldsAggregateErrors(t *testing.T) {
 	_, _, err := Format("\U0001F44D‍ ️", Options{})
 	if err == nil {

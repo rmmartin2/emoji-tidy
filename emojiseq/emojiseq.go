@@ -1,6 +1,8 @@
 // Package emojiseq checks and repairs the structural rules that hold an
 // emoji sequence together: zero-width joiners, variation selectors, skin
-// tone modifiers, regional indicator pairs, and keycap sequences.
+// tone modifiers, regional indicator pairs, keycap sequences, and tag
+// sequences (the subdivision flags built from a black flag plus tag
+// characters, like England or Scotland).
 //
 // It does not validate against the full Unicode emoji-data property
 // tables, so it will happily accept codepoint combinations that aren't
@@ -23,6 +25,10 @@ const (
 	regionalLow    rune = 0x1F1E6
 	regionalHigh   rune = 0x1F1FF
 	keycapCombiner rune = 0x20E3
+	blackFlag      rune = 0x1F3F4
+	tagLow         rune = 0xE0020
+	tagHigh        rune = 0xE007E
+	tagCancel      rune = 0xE007F
 )
 
 type runeKind int
@@ -38,18 +44,24 @@ const (
 	kindKeycapVariation
 	kindFlag
 	kindKeycap
+	kindTagBase
+	kindTagChar
+	kindTag
 )
 
 // completedKind names the kinds that represent a finished, self-contained
-// sequence (a paired flag or a closed keycap) rather than a single base
-// character. Neither can take a joiner, variation selector, or skin tone
-// modifier afterward - the same restriction plain text is under.
+// sequence (a paired flag, a closed keycap, or a closed tag sequence) rather
+// than a single base character. None of them can take a joiner, variation
+// selector, or skin tone modifier afterward - the same restriction plain
+// text is under.
 func completedKind(k runeKind) (name string, ok bool) {
 	switch k {
 	case kindFlag:
 		return "flag", true
 	case kindKeycap:
 		return "keycap", true
+	case kindTag:
+		return "subdivision flag", true
 	default:
 		return "", false
 	}
@@ -135,6 +147,7 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 	var warnings []Warning
 	var errs []*ValidationError
 	last := kindNone
+	tagBaseLen := 0
 
 	// reject records a violation. It returns true if the violation is
 	// fatal (strict mode, so the caller should stop and discard the
@@ -158,7 +171,7 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 				}
 				continue
 			}
-			if last != kindBase && last != kindModifier && last != kindVariation {
+			if last != kindBase && last != kindModifier && last != kindVariation && last != kindTagBase {
 				if reject(fmt.Sprintf("position %d: zero-width joiner has no preceding emoji to join", i)) {
 					return "", warnings, errs
 				}
@@ -174,7 +187,7 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 				}
 				continue
 			}
-			if last != kindBase && last != kindKeycapBase {
+			if last != kindBase && last != kindKeycapBase && last != kindTagBase {
 				if reject(fmt.Sprintf("position %d: variation selector is not attached to a base character", i)) {
 					return "", warnings, errs
 				}
@@ -194,7 +207,7 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 				}
 				continue
 			}
-			if last != kindBase {
+			if last != kindBase && last != kindTagBase {
 				if reject(fmt.Sprintf("position %d: skin tone modifier is not attached to a base emoji", i)) {
 					return "", warnings, errs
 				}
@@ -221,6 +234,43 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 			out = append(out, r)
 			last = kindKeycap
 
+		case r == blackFlag:
+			out = append(out, r)
+			tagBaseLen = len(out)
+			last = kindTagBase
+
+		case r >= tagLow && r <= tagHigh:
+			if what, ok := completedKind(last); ok {
+				if reject(fmt.Sprintf("position %d: tag character cannot follow a completed %s sequence", i, what)) {
+					return "", warnings, errs
+				}
+				continue
+			}
+			if last != kindTagBase && last != kindTagChar {
+				if reject(fmt.Sprintf("position %d: tag character has no preceding flag to attach to", i)) {
+					return "", warnings, errs
+				}
+				continue
+			}
+			out = append(out, r)
+			last = kindTagChar
+
+		case r == tagCancel:
+			if what, ok := completedKind(last); ok {
+				if reject(fmt.Sprintf("position %d: tag cancel character cannot follow a completed %s sequence", i, what)) {
+					return "", warnings, errs
+				}
+				continue
+			}
+			if last != kindTagChar {
+				if reject(fmt.Sprintf("position %d: tag cancel character has no preceding tag characters to close", i)) {
+					return "", warnings, errs
+				}
+				continue
+			}
+			out = append(out, r)
+			last = kindTag
+
 		default:
 			out = append(out, r)
 			if isKeycapBase(r) {
@@ -238,6 +288,12 @@ func formatField(field string, lenient bool) (string, []Warning, []*ValidationEr
 		if len(out) > 0 {
 			out = out[:len(out)-1]
 		}
+	}
+	if last == kindTagChar {
+		if reject("sequence ends with an incomplete tag sequence: missing the cancel tag character") {
+			return "", warnings, errs
+		}
+		out = out[:tagBaseLen]
 	}
 	if last == kindRegionalFirst {
 		// A lone regional indicator is valid Unicode on its own (it just

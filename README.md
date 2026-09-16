@@ -27,6 +27,12 @@ rules that hold an emoji sequence together:
   (digit/#/* + optional VS16 + U+20E3) is not a modifier base: a skin tone
   modifier, variation selector, or joiner right after one is rejected the
   same way as one attached to plain text
+- tag sequences (subdivision flags like England or Scotland: U+1F3F4 + one
+  or more tag characters U+E0020-U+E007E + the cancel tag U+E007F) are
+  checked for a preceding black flag and a closing cancel tag; a black flag
+  with no tag characters at all is just the ordinary flag emoji, not an
+  error, and a closed tag sequence is a completed unit like a flag or
+  keycap - nothing can follow it
 
 By default (strict mode) any violation is a fatal error and nothing is
 printed. Pass `--lenient` to repair what it can instead - dropping orphan
